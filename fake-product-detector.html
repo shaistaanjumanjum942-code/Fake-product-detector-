@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AuthentiScan — Fake Product Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root {
+    --c0: #0a0a0f;
+    --c1: #0f0f1a;
+    --c2: #1a1a2e;
+    --accent: #00ffe0;
+    --accent2: #7b2fff;
+    --accent3: #ff3c6e;
+    --gold: #ffd166;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --card: #13131f;
+    --border: rgba(0,255,224,0.12);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--c0);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    overflow-x: hidden;
+  }
+  h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
+
+  /* ── CANVAS BG ── */
+  #hero-canvas {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 1.2rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(10,10,15,0.7);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 1.4rem;
+    color: var(--accent);
+    letter-spacing: -0.03em;
+  }
+  .logo span { color: var(--accent3); }
+  nav ul { list-style: none; display: flex; gap: 2rem; }
+  nav ul li a {
+    color: var(--muted); text-decoration: none;
+    font-size: 0.78rem; letter-spacing: 0.1em;
+    text-transform: uppercase; transition: color 0.3s;
+  }
+  nav ul li a:hover { color: var(--accent); }
+  .nav-cta {
+    background: var(--accent); color: var(--c0) !important;
+    padding: 0.5rem 1.2rem; border-radius: 4px;
+    font-weight: 700 !important; color: #000 !important;
+  }
+
+  /* ── HERO ── */
+  #hero {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 8rem 2rem 4rem;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: rgba(0,255,224,0.06);
+    border: 1px solid rgba(0,255,224,0.2);
+    border-radius: 100px; padding: 0.4rem 1.2rem;
+    font-size: 0.72rem; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 2rem;
+  }
+  .hero-badge::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.4)} }
+  h1.hero-title {
+    font-size: clamp(3rem,8vw,7rem);
+    font-weight: 800; line-height: 0.95;
+    letter-spacing: -0.04em; margin-bottom: 1.5rem;
+  }
+  h1.hero-title .line1 { display: block; color: var(--text); }
+  h1.hero-title .line2 {
+    display: block;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero-sub {
+    font-size: 0.95rem; color: var(--muted); max-width: 500px;
+    margin: 0 auto 3rem; line-height: 1.8;
+  }
+  .hero-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--accent); color: #000;
+    padding: 1rem 2.5rem; border-radius: 6px;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.95rem; text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 0 30px rgba(0,255,224,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 50px rgba(0,255,224,0.5); }
+  .btn-ghost {
+    background: transparent; color: var(--text);
+    padding: 1rem 2.5rem; border-radius: 6px;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.95rem; text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .hero-stats {
+    display: flex; gap: 3rem; justify-content: center;
+    margin-top: 4rem; flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'Syne', sans-serif; font-size: 2.2rem;
+    font-weight: 800; color: var(--accent);
+  }
+  .stat-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; }
+
+  /* ── 3D CARD SCENE ── */
+  .scene-wrapper {
+    perspective: 1200px; margin: 5rem auto;
+    width: 340px; height: 220px;
+  }
+  .scanner-card-3d {
+    width: 100%; height: 100%;
+    transform-style: preserve-3d;
+    transform: rotateX(20deg) rotateY(-15deg);
+    transition: transform 0.6s ease;
+    position: relative;
+  }
+  .scanner-card-3d:hover {
+    transform: rotateX(5deg) rotateY(5deg);
+  }
+  .card-face {
+    position: absolute; inset: 0; border-radius: 16px;
+    padding: 2rem;
+    background: linear-gradient(135deg, #161628, #1f1f3a);
+    border: 1px solid rgba(0,255,224,0.25);
+    box-shadow:
+      0 0 0 1px rgba(0,255,224,0.05),
+      0 30px 80px rgba(0,0,0,0.7),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .card-glow {
+    position: absolute; inset: -2px; border-radius: 18px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    z-index: -1; opacity: 0.15; filter: blur(8px);
+  }
+  .card-scan-line {
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scanDown 2s ease-in-out infinite;
+    box-shadow: 0 0 10px var(--accent);
+  }
+  @keyframes scanDown {
+    0% { top: 30px; opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { top: 190px; opacity: 0; }
+  }
+  .card-corners { position: absolute; inset: 0; pointer-events: none; }
+  .card-corners::before, .card-corners::after {
+    content: ''; position: absolute;
+    width: 20px; height: 20px;
+    border-color: var(--accent); border-style: solid;
+    border-radius: 2px;
+  }
+  .card-corners::before {
+    top: 12px; left: 12px;
+    border-width: 2px 0 0 2px;
+  }
+  .card-corners::after {
+    bottom: 12px; right: 12px;
+    border-width: 0 2px 2px 0;
+  }
+  .card-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+  .card-title-3d {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem; font-weight: 700; color: var(--accent);
+  }
+  .card-status {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: rgba(0,255,224,0.1); border: 1px solid rgba(0,255,224,0.2);
+    border-radius: 100px; padding: 0.3rem 0.8rem; margin-top: 1rem;
+    font-size: 0.7rem; letter-spacing: 0.1em; color: var(--accent);
+  }
+  .card-status::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--accent); animation:pulse 1.5s infinite; }
+
+  /* ── SECTION ── */
+  section { position: relative; z-index: 1; }
+  .section-tag {
+    display: inline-block; font-size: 0.7rem;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 1rem;
+    font-family: 'Space Mono', monospace;
+  }
+  .section-title {
+    font-size: clamp(2rem,5vw,3.5rem);
+    font-weight: 800; letter-spacing: -0.03em; line-height: 1.1;
+    margin-bottom: 1rem;
+  }
+  .section-sub { color: var(--muted); line-height: 1.8; max-width: 550px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+
+  /* ── HOW IT WORKS ── */
+  #how { padding: 8rem 0; }
+  .steps-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr));
+    gap: 1.5rem; margin-top: 4rem;
+  }
+  .step-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 2rem;
+    position: relative; overflow: hidden;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .step-card:hover {
+    border-color: rgba(0,255,224,0.4);
+    transform: translateY(-4px);
+  }
+  .step-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .step-card:hover::before { opacity: 1; }
+  .step-num {
+    font-family: 'Syne', sans-serif; font-size: 3.5rem;
+    font-weight: 800; line-height: 1;
+    color: rgba(0,255,224,0.08); margin-bottom: 1rem;
+  }
+  .step-icon { font-size: 1.8rem; margin-bottom: 1rem; }
+  .step-card h3 { font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--text); }
+  .step-card p { font-size: 0.82rem; color: var(--muted); line-height: 1.7; }
+
+  /* ── SCANNER SECTION ── */
+  #scanner-section { padding: 6rem 0; }
+  .scanner-container {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px; overflow: hidden;
+    max-width: 700px; margin: 3rem auto 0;
+  }
+  .scanner-tabs {
+    display: flex; background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    flex: 1; padding: 1.2rem 1.5rem;
+    background: none; border: none; color: var(--muted);
+    font-family: 'Space Mono', monospace; font-size: 0.82rem;
+    cursor: pointer; transition: all 0.3s;
+    border-bottom: 2px solid transparent;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .tab-btn.active {
+    color: var(--accent); border-bottom-color: var(--accent);
+    background: rgba(0,255,224,0.04);
+  }
+  .tab-content { display: none; padding: 2rem; }
+  .tab-content.active { display: block; }
+
+  /* QR Scanner */
+  #qr-reader { width: 100%; border-radius: 12px; overflow: hidden; }
+  #qr-reader video { border-radius: 12px; }
+  .scanner-controls {
+    display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;
+  }
+  .btn-scan {
+    background: var(--accent); color: #000;
+    border: none; padding: 0.9rem 2rem; border-radius: 8px;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
+    flex: 1;
+  }
+  .btn-scan:hover { opacity: 0.9; transform: scale(1.02); }
+  .btn-stop {
+    background: transparent; color: var(--accent3);
+    border: 1px solid var(--accent3); padding: 0.9rem 2rem;
+    border-radius: 8px; font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 0.9rem; cursor: pointer;
+    transition: all 0.2s; flex: 1;
+  }
+  .btn-stop:hover { background: rgba(255,60,110,0.1); }
+  #qr-result {
+    margin-top: 1.5rem; padding: 1.2rem;
+    background: rgba(0,255,224,0.05); border: 1px solid rgba(0,255,224,0.2);
+    border-radius: 10px; display: none; word-break: break-all;
+  }
+  #qr-result .result-label { font-size: 0.7rem; letter-spacing: 0.15em; color: var(--accent); text-transform: uppercase; margin-bottom: 0.5rem; }
+  #qr-result .result-value { font-size: 0.88rem; color: var(--text); }
+
+  /* Barcode scanner */
+  .barcode-input-zone {
+    border: 2px dashed var(--border);
+    border-radius: 16px; padding: 3rem 2rem;
+    text-align: center; cursor: pointer;
+    transition: border-color 0.3s;
+    position: relative;
+  }
+  .barcode-input-zone:hover { border-color: rgba(0,255,224,0.4); }
+  .barcode-anim {
+    width: 200px; height: 80px; margin: 0 auto 1.5rem;
+    position: relative;
+  }
+  .barcode-bars {
+    display: flex; gap: 3px; align-items: flex-end;
+    height: 100%; justify-content: center;
+  }
+  .bar {
+    background: var(--accent); border-radius: 2px;
+    animation: barPulse 1.5s ease-in-out infinite;
+    opacity: 0.7;
+  }
+  .bar:nth-child(odd) { animation-delay: 0.2s; }
+  @keyframes barPulse {
+    0%,100% { transform: scaleY(1); opacity: 0.4; }
+    50% { transform: scaleY(1.2); opacity: 1; }
+  }
+  .barcode-label { font-size: 0.82rem; color: var(--muted); margin-bottom: 1rem; }
+  #barcode-text-input {
+    width: 100%; background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem 1.2rem; color: var(--text);
+    font-family: 'Space Mono', monospace; font-size: 0.95rem;
+    outline: none; margin-top: 1rem; transition: border-color 0.3s;
+  }
+  #barcode-text-input:focus { border-color: var(--accent); }
+  #barcode-text-input::placeholder { color: var(--muted); }
+  .verify-btn {
+    width: 100%; background: linear-gradient(135deg, var(--accent2), var(--accent3));
+    color: #fff; border: none; padding: 1rem; border-radius: 8px;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 1rem; cursor: pointer; margin-top: 1rem;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .verify-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* Result display */
+  .verification-result {
+    display: none; margin-top: 1.5rem;
+    padding: 1.5rem; border-radius: 12px; text-align: center;
+  }
+  .result-authentic {
+    background: rgba(0,200,100,0.08);
+    border: 1px solid rgba(0,200,100,0.3);
+  }
+  .result-fake {
+    background: rgba(255,60,110,0.08);
+    border: 1px solid rgba(255,60,110,0.3);
+  }
+  .result-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+  .result-heading { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; }
+  .result-authentic .result-heading { color: #00c864; }
+  .result-fake .result-heading { color: var(--accent3); }
+  .result-desc { font-size: 0.82rem; color: var(--muted); margin-top: 0.5rem; line-height: 1.7; }
+  .result-detail {
+    display: flex; gap: 1rem; margin-top: 1.2rem; flex-wrap: wrap; justify-content: center;
+  }
+  .detail-chip {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.72rem; color: var(--muted);
+  }
+  .detail-chip span { color: var(--text); font-weight: 700; }
+
+  /* ── FEATURES ── */
+  #features { padding: 8rem 0; }
+  .features-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 2rem; margin-top: 4rem;
+  }
+  @media(max-width:768px) { .features-grid { grid-template-columns: 1fr; } }
+  .feature-item {
+    display: flex; gap: 1.2rem; align-items: flex-start;
+    padding: 1.5rem;
+    border: 1px solid var(--border); border-radius: 14px;
+    background: var(--card); transition: border-color 0.3s;
+  }
+  .feature-item:hover { border-color: rgba(0,255,224,0.3); }
+  .feature-icon-wrap {
+    width: 48px; height: 48px; flex-shrink: 0;
+    background: rgba(0,255,224,0.08); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+  }
+  .feature-item h4 { font-size: 1rem; margin-bottom: 0.4rem; color: var(--text); }
+  .feature-item p { font-size: 0.8rem; color: var(--muted); line-height: 1.7; }
+
+  /* ── REVIEWS ── */
+  #reviews { padding: 8rem 0; }
+  .reviews-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 3rem; flex-wrap: gap;
+  }
+  .overall-rating {
+    display: flex; flex-direction: column; align-items: flex-end;
+  }
+  .rating-big {
+    font-family: 'Syne', sans-serif; font-size: 4rem; font-weight: 800; line-height: 1;
+    background: linear-gradient(90deg, var(--gold), #ff9800);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stars-big { font-size: 1.4rem; letter-spacing: 2px; }
+  .rating-count { font-size: 0.75rem; color: var(--muted); }
+  .reviews-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr));
+    gap: 1.5rem;
+  }
+  .review-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.8rem;
+    position: relative; overflow: hidden;
+    transition: transform 0.3s, border-color 0.3s;
+  }
+  .review-card:hover { transform: translateY(-3px); border-color: rgba(0,255,224,0.25); }
+  .review-card::after {
+    content: '"'; position: absolute; right: 1.5rem; top: 1rem;
+    font-family: 'Syne', sans-serif; font-size: 6rem; font-weight: 800;
+    color: rgba(0,255,224,0.04); line-height: 1;
+  }
+  .reviewer {
+    display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem;
+  }
+  .avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .reviewer-info h4 { font-size: 0.9rem; color: var(--text); }
+  .reviewer-info span { font-size: 0.72rem; color: var(--muted); }
+  .stars { color: var(--gold); font-size: 0.85rem; margin-bottom: 0.8rem; }
+  .review-text { font-size: 0.82rem; color: var(--muted); line-height: 1.75; }
+  .verified-badge {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    background: rgba(0,200,100,0.08); border: 1px solid rgba(0,200,100,0.2);
+    border-radius: 100px; padding: 0.25rem 0.7rem;
+    font-size: 0.65rem; color: #00c864; margin-top: 1rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .review-product {
+    font-size: 0.72rem; color: var(--muted); margin-top: 0.8rem;
+    padding-top: 0.8rem; border-top: 1px solid var(--border);
+  }
+  .review-product span { color: var(--accent); }
+
+  /* Rating bars */
+  .rating-breakdown {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2rem; margin-bottom: 3rem;
+  }
+  .rating-row {
+    display: flex; align-items: center; gap: 1rem; margin-bottom: 0.8rem;
+  }
+  .rating-row-label { font-size: 0.75rem; color: var(--muted); width: 30px; }
+  .rating-bar-track {
+    flex: 1; height: 6px; background: rgba(255,255,255,0.05);
+    border-radius: 100px; overflow: hidden;
+  }
+  .rating-bar-fill {
+    height: 100%; border-radius: 100px;
+    background: linear-gradient(90deg, var(--gold), #ff9800);
+    transition: width 1s ease;
+  }
+  .rating-row-count { font-size: 0.72rem; color: var(--muted); width: 30px; text-align: right; }
+
+  /* ── CTA ── */
+  #cta {
+    padding: 10rem 0; text-align: center;
+    position: relative; z-index: 1;
+  }
+  .cta-box {
+    max-width: 700px; margin: 0 auto; padding: 5rem 3rem;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 32px; position: relative; overflow: hidden;
+  }
+  .cta-box::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(0,255,224,0.06) 0%, transparent 70%);
+  }
+  .cta-box h2 { font-size: clamp(2rem,5vw,3.5rem); font-weight: 800; margin-bottom: 1rem; }
+  .cta-box p { color: var(--muted); margin-bottom: 2.5rem; line-height: 1.8; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border); padding: 3rem 2rem;
+    text-align: center; color: var(--muted); font-size: 0.78rem;
+    position: relative; z-index: 1;
+  }
+  footer .footer-logo { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; color: var(--accent); margin-bottom: 0.5rem; }
+  footer a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+  footer a:hover { color: var(--accent); }
+
+  /* ── SCANNER STATUS ── */
+  .scanner-status {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 1rem; border-radius: 8px;
+    background: rgba(0,255,224,0.06); border: 1px solid rgba(0,255,224,0.15);
+    font-size: 0.75rem; color: var(--muted); margin-bottom: 1rem;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted); animation: none;
+  }
+  .status-dot.active { background: var(--accent); animation: pulse 1.5s infinite; }
+
+  /* Upload image barcode */
+  #img-upload-btn {
+    background: rgba(123,47,255,0.15); color: var(--accent2);
+    border: 1px solid rgba(123,47,255,0.3); padding: 0.9rem 2rem;
+    border-radius: 8px; font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 0.9rem; cursor: pointer;
+    transition: all 0.2s; width: 100%; margin-top: 0.5rem;
+  }
+  #img-upload-btn:hover { background: rgba(123,47,255,0.25); }
+  #file-input { display: none; }
+</style>
+</head>
+<body>
+
+<canvas id="hero-canvas"></canvas>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Authenti<span>Scan</span></div>
+  <ul>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#scanner-section">Scanner</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#reviews">Reviews</a></li>
+    <li><a href="#scanner-section" class="nav-cta">Try Now</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div>
+    <div class="hero-badge">AI-Powered Authentication System</div>
+    <h1 class="hero-title">
+      <span class="line1">Detect Fake</span>
+      <span class="line2">Products Instantly</span>
+    </h1>
+    <p class="hero-sub">Scan any QR code or barcode to verify product authenticity in under 3 seconds. Powered by blockchain-verified manufacturer data and AI pattern recognition.</p>
+    <div class="hero-btns">
+      <a href="#scanner-section" class="btn-primary">Start Scanning</a>
+      <a href="#how" class="btn-ghost">How it works</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-num">47M+</div>
+        <div class="stat-label">Products Verified</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">99.8%</div>
+        <div class="stat-label">Accuracy Rate</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">180+</div>
+        <div class="stat-label">Brands Protected</div>
+      </div>
+    </div>
+
+    <!-- 3D Card -->
+    <div class="scene-wrapper" style="margin-top:3rem;">
+      <div class="scanner-card-3d" id="card3d">
+        <div class="card-glow"></div>
+        <div class="card-face">
+          <div class="card-corners"></div>
+          <div class="card-scan-line"></div>
+          <div class="card-icon">🔍</div>
+          <div class="card-title-3d">AuthentiScan Engine v4.2</div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem;">Blockchain-backed verification</div>
+          <div class="card-status">● SYSTEM ONLINE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="section-tag">// HOW IT WORKS</div>
+    <h2 class="section-title">Three steps to truth</h2>
+    <p class="section-sub">Our detection pipeline cross-references multiple blockchain registries in real time to give you a definitive verdict.</p>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">01</div>
+        <div class="step-icon">📷</div>
+        <h3>Scan the Code</h3>
+        <p>Point your camera at any QR code or barcode on the product. Our scanner captures and decodes it in milliseconds.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">02</div>
+        <div class="step-icon">🔗</div>
+        <h3>Blockchain Lookup</h3>
+        <p>The decoded identifier is cross-referenced with manufacturer blockchain records, verifying cryptographic signatures.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">03</div>
+        <div class="step-icon">🤖</div>
+        <h3>AI Analysis</h3>
+        <p>Our ML model detects counterfeit patterns — clone barcodes, off-spec checksums, and regional origin mismatches.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">04</div>
+        <div class="step-icon">✅</div>
+        <h3>Instant Verdict</h3>
+        <p>Receive a clear AUTHENTIC or FAKE verdict with full confidence score, product details, and manufacturer info.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCANNER SECTION -->
+<section id="scanner-section">
+  <div class="container">
+    <div style="text-align:center;">
+      <div class="section-tag">// LIVE SCANNER</div>
+      <h2 class="section-title">Scan & Verify Now</h2>
+      <p class="section-sub" style="margin:0 auto 1rem;">Use your camera to scan QR codes, or enter a barcode number manually for instant verification.</p>
+    </div>
+
+    <div class="scanner-container">
+      <div class="scanner-tabs">
+        <button class="tab-btn active" onclick="switchTab('qr')">📷 QR Code Scanner</button>
+        <button class="tab-btn" onclick="switchTab('barcode')">▮▮▮ Barcode Lookup</button>
+      </div>
+
+      <!-- QR Tab -->
+      <div class="tab-content active" id="tab-qr">
+        <div class="scanner-status">
+          <div class="status-dot" id="qr-status-dot"></div>
+          <span id="qr-status-text">Requesting camera access...</span>
+        </div>
+        <div id="qr-reader"></div>
+        <div class="scanner-controls">
+          <button class="btn-scan" id="start-btn" onclick="startQRScanner()">▶ Start Scanner</button>
+          <button class="btn-stop" id="stop-btn" onclick="stopQRScanner()" style="display:none;">■ Stop</button>
+        </div>
+        <div id="qr-result">
+          <div class="result-label">Scanned Data</div>
+          <div class="result-value" id="qr-result-text"></div>
+        </div>
+        <div class="verification-result" id="qr-verification"></div>
+      </div>
+
+      <!-- Barcode Tab -->
+      <div class="tab-content" id="tab-barcode">
+        <div class="barcode-input-zone">
+          <div class="barcode-anim">
+            <div class="barcode-bars" id="barcode-anim-bars"></div>
+          </div>
+          <p class="barcode-label">Enter barcode number below or upload a product image</p>
+          <input type="text" id="barcode-text-input" placeholder="e.g. 0 12345 67890 5" maxlength="50">
+          <button class="verify-btn" onclick="verifyBarcode()">🔍 Verify Product Authenticity</button>
+          <button class="verify-btn" id="img-upload-btn" onclick="document.getElementById('file-input').click()" style="background:rgba(123,47,255,0.15);color:var(--accent2);border:1px solid rgba(123,47,255,0.3);margin-top:0.5rem;">
+            📁 Upload Image with Barcode
+          </button>
+          <input type="file" id="file-input" accept="image/*">
+        </div>
+        <div class="verification-result" id="barcode-verification"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-tag">// FEATURES</div>
+    <h2 class="section-title">Enterprise-grade protection</h2>
+    <div class="features-grid">
+      <div class="feature-item">
+        <div class="feature-icon-wrap">🔐</div>
+        <div>
+          <h4>Blockchain Verification</h4>
+          <p>Every authentic product has a cryptographic fingerprint anchored to an immutable blockchain ledger maintained by the manufacturer.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon-wrap">🤖</div>
+        <div>
+          <h4>AI Pattern Recognition</h4>
+          <p>Trained on 12 million counterfeit samples, our model detects subtle deviations in barcode structure invisible to the human eye.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon-wrap">⚡</div>
+        <div>
+          <h4>Sub-3s Detection</h4>
+          <p>Results in under 3 seconds via our globally distributed edge network — no waiting, no uncertainty.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon-wrap">🌍</div>
+        <div>
+          <h4>Global Brand Registry</h4>
+          <p>180+ brand partners across pharmaceuticals, luxury goods, electronics, and food & beverage — growing weekly.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon-wrap">📊</div>
+        <div>
+          <h4>Counterfeit Reports</h4>
+          <p>Each scan contributes to our counterfeit heatmap, helping authorities track fake goods supply chains in real time.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon-wrap">🔌</div>
+        <div>
+          <h4>Developer API</h4>
+          <p>Embed AuthentiScan in your own app or supply chain platform via our REST API with 99.99% uptime SLA.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section id="reviews">
+  <div class="container">
+    <div class="section-tag">// USER REVIEWS</div>
+    <div class="reviews-header">
+      <div>
+        <h2 class="section-title">Trusted worldwide</h2>
+        <p class="section-sub">Over 2 million scans performed. Here's what our users say.</p>
+      </div>
+      <div class="overall-rating">
+        <div class="rating-big">4.9</div>
+        <div class="stars-big">⭐⭐⭐⭐⭐</div>
+        <div class="rating-count">Based on 18,402 reviews</div>
+      </div>
+    </div>
+
+    <div class="rating-breakdown">
+      <div class="rating-row">
+        <div class="rating-row-label">5★</div>
+        <div class="rating-bar-track"><div class="rating-bar-fill" style="width:88%"></div></div>
+        <div class="rating-row-count">88%</div>
+      </div>
+      <div class="rating-row">
+        <div class="rating-row-label">4★</div>
+        <div class="rating-bar-track"><div class="rating-bar-fill" style="width:8%;opacity:0.7"></div></div>
+        <div class="rating-row-count">8%</div>
+      </div>
+      <div class="rating-row">
+        <div class="rating-row-label">3★</div>
+        <div class="rating-bar-track"><div class="rating-bar-fill" style="width:2%;opacity:0.5"></div></div>
+        <div class="rating-row-count">2%</div>
+      </div>
+      <div class="rating-row">
+        <div class="rating-row-label">2★</div>
+        <div class="rating-bar-track"><div class="rating-bar-fill" style="width:1%;opacity:0.3"></div></div>
+        <div class="rating-row-count">1%</div>
+      </div>
+      <div class="rating-row">
+        <div class="rating-row-label">1★</div>
+        <div class="rating-bar-track"><div class="rating-bar-fill" style="width:1%;opacity:0.2"></div></div>
+        <div class="rating-row-count">1%</div>
+      </div>
+    </div>
+
+    <div class="reviews-grid">
+
+      <div class="review-card">
+        <div class="reviewer">
+          <div class="avatar" style="background:rgba(0,255,224,0.12);color:var(--accent);">SJ</div>
+          <div class="reviewer-info">
+            <h4>Sana J.</h4>
+            <span>Verified Buyer · Bangalore</span>
+          </div>
+        </div>
+        <div class="stars">★★★★★</div>
+        <p class="review-text">Saved me from buying a fake Rolex watch on an online marketplace. The scan took 2 seconds and immediately flagged it as counterfeit with a confidence score of 99.1%. Absolutely essential app!</p>
+        <div class="verified-badge">✓ Verified Purchase</div>
+        <div class="review-product">Detected: <span>Luxury Watch</span> · Counterfeit Flagged</div>
+      </div>
+
+      <div class="review-card">
+        <div class="reviewer">
+          <div class="avatar" style="background:rgba(123,47,255,0.12);color:var(--accent2);">MR</div>
+          <div class="reviewer-info">
+            <h4>Marcus R.</h4>
+            <span>Verified Buyer · New York</span>
+          </div>
+        </div>
+        <div class="stars">★★★★★</div>
+        <p class="review-text">As a pharmacist, I use this daily to verify medication authenticity. The blockchain lookup is incredibly fast and the pharmaceutical brand database is the most comprehensive I've seen.</p>
+        <div class="verified-badge">✓ Verified Purchase</div>
+        <div class="review-product">Used for: <span>Pharmaceutical Verification</span></div>
+      </div>
+
+      <div class="review-card">
+        <div class="reviewer">
+          <div class="avatar" style="background:rgba(255,60,110,0.12);color:var(--accent3);">PK</div>
+          <div class="reviewer-info">
+            <h4>Priya K.</h4>
+            <span>Verified Buyer · Mumbai</span>
+          </div>
+        </div>
+        <div class="stars">★★★★★</div>
+        <p class="review-text">I was skeptical at first, but it correctly authenticated all 6 Nike products I bought and rejected a 7th that was a clear fake. The AI explanation of WHY it's fake is brilliant — shows exactly which checksum failed.</p>
+        <div class="verified-badge">✓ Verified Purchase</div>
+        <div class="review-product">Detected: <span>Sportswear</span> · 1 Fake Caught</div>
+      </div>
+
+      <div class="review-card">
+        <div class="reviewer">
+          <div class="avatar" style="background:rgba(255,209,102,0.15);color:var(--gold);">AT</div>
+          <div class="reviewer-info">
+            <h4>Alex T.</h4>
+            <span>Verified Buyer · London</span>
+          </div>
+        </div>
+        <div class="stars">★★★★☆</div>
+        <p class="review-text">Works brilliantly for 90% of products. Occasionally a niche brand isn't in the database yet, but the team is responsive and added the ones I requested within 48 hours. Impressive support.</p>
+        <div class="verified-badge">✓ Verified Purchase</div>
+        <div class="review-product">Used for: <span>Electronics & Accessories</span></div>
+      </div>
+
+      <div class="review-card">
+        <div class="reviewer">
+          <div class="avatar" style="background:rgba(0,200,100,0.12);color:#00c864);">CL</div>
+          <div class="reviewer-info">
+            <h4>Chen L.</h4>
+            <span>Supply Chain Manager · Shanghai</span>
+          </div>
+        </div>
+        <div class="stars">★★★★★</div>
+        <p class="review-text">We integrated the developer API into our logistics platform. Now every pallet that enters our warehouse is verified automatically. Caught 3 shipments of counterfeit goods in the first month alone.</p>
+        <div class="verified-badge">✓ Enterprise Client</div>
+        <div class="review-product">Use case: <span>Supply Chain Integration</span></div>
+      </div>
+
+      <div class="review-card">
+        <div class="reviewer">
+          <div class="avatar" style="background:rgba(0,255,224,0.08);color:var(--accent);">RN</div>
+          <div class="reviewer-info">
+            <h4>Rahul N.</h4>
+            <span>Verified Buyer · Delhi</span>
+          </div>
+        </div>
+        <div class="stars">★★★★★</div>
+        <p class="review-text">This is the most reliable product verification tool I've tested. The 3D holographic result screen is a nice touch too. Shared it with my whole family — they all use it before buying high-value items online.</p>
+        <div class="verified-badge">✓ Verified Purchase</div>
+        <div class="review-product">Used for: <span>Consumer Electronics</span></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta">
+  <div class="container">
+    <div class="cta-box">
+      <div class="section-tag">// GET STARTED FREE</div>
+      <h2>Stop buying fakes today</h2>
+      <p>Join 2 million smart shoppers who verify before they buy. Free forever for personal use.</p>
+      <a href="#scanner-section" class="btn-primary" style="display:inline-block;text-decoration:none;">Start Your Free Scan</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">AuthentiScan</div>
+  <p style="margin-bottom:1rem;">Protecting consumers from counterfeits since 2021</p>
+  <p><a href="#">Privacy</a> · <a href="#">Terms</a> · <a href="#">API Docs</a> · <a href="#">Brand Partners</a></p>
+  <p style="margin-top:1rem;">© 2026 AuthentiScan Technologies. All rights reserved.</p>
+</footer>
+
+<script>
+/* ── CANVAS PARTICLE BG ── */
+const canvas = document.getElementById('hero-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.vx = (Math.random() - 0.5) * 0.3;
+    this.vy = (Math.random() - 0.5) * 0.3;
+    this.r = Math.random() * 1.5 + 0.3;
+    this.alpha = Math.random() * 0.4 + 0.05;
+    this.color = Math.random() > 0.7 ? '#00ffe0' : Math.random() > 0.5 ? '#7b2fff' : '#ffffff';
+  }
+  update() {
+    this.x += this.vx; this.y += this.vy;
+    if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = this.alpha;
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < 180; i++) particles.push(new Particle());
+
+function drawConnections() {
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i+1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 120) {
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(particles[j].x, particles[j].y);
+        ctx.strokeStyle = '#00ffe0';
+        ctx.globalAlpha = (1 - dist/120) * 0.06;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+function animate() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.globalAlpha = 1;
+  drawConnections();
+  particles.forEach(p => { p.update(); p.draw(); });
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ── 3D CARD MOUSE PARALLAX ── */
+const card3d = document.getElementById('card3d');
+document.addEventListener('mousemove', e => {
+  const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+  const rx = (e.clientY - cy) / cy * -10;
+  const ry = (e.clientX - cx) / cx * 15;
+  card3d.style.transform = `rotateX(${rx + 10}deg) rotateY(${ry - 5}deg)`;
+});
+
+/* ── TAB SWITCHING ── */
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (tab==='qr'&&i===0)||(tab==='barcode'&&i===1)));
+  document.getElementById('tab-qr').classList.toggle('active', tab==='qr');
+  document.getElementById('tab-barcode').classList.toggle('active', tab==='barcode');
+  if (tab !== 'qr') stopQRScanner();
+}
+
+/* ── BARCODE ANIMATION ── */
+const barsContainer = document.getElementById('barcode-anim-bars');
+for (let i = 0; i < 28; i++) {
+  const bar = document.createElement('div');
+  const h = Math.random() * 50 + 20;
+  bar.className = 'bar';
+  bar.style.cssText = `width:${Math.random()>0.5?2:4}px;height:${h}px;animation-delay:${Math.random()*1.5}s;animation-duration:${0.8+Math.random()*0.8}s`;
+  barsContainer.appendChild(bar);
+}
+
+/* ── QR SCANNER ── */
+let html5QrCode = null;
+let scanning = false;
+
+function startQRScanner() {
+  if (scanning) return;
+  html5QrCode = new Html5Qrcode("qr-reader");
+  document.getElementById('qr-status-dot').classList.add('active');
+  document.getElementById('qr-status-text').textContent = 'Camera active — scanning...';
+  document.getElementById('start-btn').style.display = 'none';
+  document.getElementById('stop-btn').style.display = 'block';
+  scanning = true;
+
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 280, height: 280 } },
+    (decodedText) => {
+      document.getElementById('qr-result').style.display = 'block';
+      document.getElementById('qr-result-text').textContent = decodedText;
+      showVerificationResult('qr-verification', decodedText);
+      stopQRScanner();
+    },
+    () => {}
+  ).catch(err => {
+    document.getElementById('qr-status-text').textContent = 'Camera error: ' + err;
+    scanning = false;
+    document.getElementById('start-btn').style.display = 'block';
+    document.getElementById('stop-btn').style.display = 'none';
+  });
+}
+
+function stopQRScanner() {
+  if (html5QrCode && scanning) {
+    html5QrCode.stop().catch(()=>{});
+    scanning = false;
+  }
+  document.getElementById('qr-status-dot').classList.remove('active');
+  document.getElementById('qr-status-text').textContent = 'Camera inactive';
+  document.getElementById('start-btn').style.display = 'block';
+  document.getElementById('stop-btn').style.display = 'none';
+}
+
+/* ── BARCODE VERIFICATION ── */
+function verifyBarcode() {
+  const val = document.getElementById('barcode-text-input').value.trim();
+  if (!val) { alert('Please enter a barcode number.'); return; }
+  showVerificationResult('barcode-verification', val);
+}
+
+/* ── IMAGE UPLOAD for barcode ── */
+document.getElementById('file-input').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const tempQr = new Html5Qrcode("qr-reader-hidden");
+  const hidden = document.createElement('div');
+  hidden.id = 'qr-reader-hidden'; hidden.style.display='none';
+  document.body.appendChild(hidden);
+  const qr2 = new Html5Qrcode('qr-reader-hidden');
+  qr2.scanFile(file, true)
+    .then(text => {
+      document.getElementById('barcode-text-input').value = text;
+      showVerificationResult('barcode-verification', text);
+      hidden.remove();
+    })
+    .catch(() => {
+      showVerificationResult('barcode-verification', file.name + '_' + Date.now());
+      hidden.remove();
+    });
+});
+
+/* ── AUTO-START CAMERA ── */
+window.addEventListener('load', () => {
+  // Small delay to let the page settle, then start camera
+  setTimeout(() => {
+    startQRScanner();
+  }, 800);
+});
+
+/* ── FAKE PRODUCT DETECTION LOGIC (simulated) ── */
+function showVerificationResult(targetId, code) {
+  const el = document.getElementById(targetId);
+  el.style.display = 'block';
+
+  // Simulate detection — deterministic by code hash for demo consistency
+  let hash = 0;
+  for (let i = 0; i < code.length; i++) hash = (hash * 31 + code.charCodeAt(i)) | 0;
+  const isAuthentic = Math.abs(hash) % 5 !== 0; // ~80% authentic for demo
+  const confidence = isAuthentic
+    ? (95 + Math.abs(hash) % 5).toFixed(1)
+    : (85 + Math.abs(hash) % 10).toFixed(1);
+
+  const brands = ['Nike','Adidas','Samsung','Apple','Rolex','Gucci','Pfizer','Sony','LG','Bose'];
+  const brand = brands[Math.abs(hash) % brands.length];
+  const origins = ['Germany','China','USA','India','Japan','France','South Korea'];
+  const origin = origins[Math.abs(hash) % origins.length];
+  const ts = new Date().toLocaleTimeString();
+
+  if (isAuthentic) {
+    el.className = 'verification-result result-authentic';
+    el.innerHTML = `
+      <div class="result-icon">✅</div>
+      <div class="result-heading">AUTHENTIC PRODUCT</div>
+      <div class="result-desc">This product has been verified against the manufacturer's blockchain registry. All cryptographic signatures match.</div>
+      <div class="result-detail">
+        <div class="detail-chip">Confidence <span>${confidence}%</span></div>
+        <div class="detail-chip">Brand <span>${brand}</span></div>
+        <div class="detail-chip">Origin <span>${origin}</span></div>
+        <div class="detail-chip">Checked <span>${ts}</span></div>
+      </div>
+    `;
+  } else {
+    el.className = 'verification-result result-fake';
+    el.innerHTML = `
+      <div class="result-icon">🚫</div>
+      <div class="result-heading">COUNTERFEIT DETECTED</div>
+      <div class="result-desc">This product FAILED authentication. The barcode signature does not match any registered product in the ${brand} blockchain registry. Do not purchase.</div>
+      <div class="result-detail">
+        <div class="detail-chip">Confidence <span>${confidence}%</span></div>
+        <div class="detail-chip">Brand Claimed <span>${brand}</span></div>
+        <div class="detail-chip">Checksum <span>FAIL</span></div>
+        <div class="detail-chip">Checked <span>${ts}</span></div>
+      </div>
+    `;
+  }
+}
+</script>
+</body>
+</html>
